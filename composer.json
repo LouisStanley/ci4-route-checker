@@ -1,0 +1,39 @@
+{
+    "name": "louisstanley/ci4-route-checker",
+    "description": "A CodeIgniter 4 CLI command to check routes",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "LouisStanley\\Ci4RouteChecker\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Louis Stanley"
+        }
+    ],
+    "require": {
+        "codeigniter4/framework": "^4.3"
+    },
+    "require-dev": {
+        "codeigniter4/devkit": "^1.3"
+    },
+    "extra": {
+        "codeigniter": {
+            "commands": [
+                "LouisStanley\\Ci4RouteChecker\\Commands\\CheckRoutes"
+            ]
+        }
+    },
+    "scripts": {
+        "cs-fix": "php-cs-fixer fix --ansi --verbose --diff"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
+    }
+}
