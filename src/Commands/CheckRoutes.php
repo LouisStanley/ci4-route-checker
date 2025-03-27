@@ -14,40 +14,52 @@ class CheckRoutes extends BaseCommand
     protected $group       = 'routes';
     protected $name        = 'routes:check';
     protected $description = 'Check all defined routes for missing controllers, methods, and potential issues.';
+    protected $config;
+    private $warnings = [];
+    private $errors   = [];
 
     public function run(array $params)
     {
+        $this->config = config('RouteChecker');
+
         $collection            = Services::routes()->loadRoutes();
         $definedRouteCollector = new DefinedRouteCollector($collection);
 
         CLI::write("Checking defined routes...\n", 'yellow');
 
-        $invalidRoutes = [];
-        $warnings      = [];
-
         foreach ($definedRouteCollector->collect() as $route) {
             $handler = $route['handler'];
 
-            // Handle closure routes
+            if (! empty($this->config->ignoredRoutes)) {
+                foreach ($this->config->ignoredRoutes as $pattern) {
+                    if ($this->filterRoute($pattern, $route['route'])) {
+                        continue 2;
+                    }
+                }
+            }
 
             // TODO handle closures
             if ($handler === '(Closure)') {
-                $warnings[] = [
-                    'route'   => $route,
-                    'warning' => 'Closure found: ' . $route['route'],
-                ];
+                $this->setWarning($route['route'], 'Closure found: ' . $route['route']);
 
                 continue;
             }
 
-            // Check standard Controller::method routes
-            $this->checkStandardRoute($handler, $route, $invalidRoutes, $warnings);
+            $this->checkStandardRoute($handler, $route);
         }
 
-        $this->displayResults($warnings, $invalidRoutes);
+        $this->displayResults();
     }
 
-    private function checkStandardRoute(string $handler, array $route, array &$invalidRoutes, array &$warning = [])
+    private function filterRoute(string $pattern, string $route): bool
+    {
+        $pattern = preg_quote($pattern, '/');
+        $pattern = str_replace('\*', '.*', $pattern);
+
+        return (bool) preg_match("/^{$pattern}$/", $route);
+    }
+
+    private function checkStandardRoute(string $handler, array $route)
     {
         [$controller, $method] = explode('::', $handler);
         $method                = strtok($method, '/') ?: $method;
@@ -55,7 +67,7 @@ class CheckRoutes extends BaseCommand
         $params = [];
 
         while ($param = strtok('/')) {
-            $params[] = $param;  // Add each subsequent word to the params array
+            $params[] = $param;
         }
 
         try {
@@ -63,49 +75,46 @@ class CheckRoutes extends BaseCommand
             $methodExists     = $controllerExists && method_exists($controller, $method);
 
             if (! $controllerExists) {
-                $invalidRoutes[] = [
-                    'route' => $route,
-                    'error' => 'Controller not found: ' . $controller,
-                ];
+                $this->setError($route['route'], 'Controller not found: ' . $controller);
+
+                return;
             }
 
             if (! $methodExists) {
-                $invalidRoutes[] = [
-                    'route' => $route,
-                    'error' => sprintf('Method not found: %s::%s', $controller, $method),
-                ];
+                $this->setError($route['route'], sprintf('Method not found: %s::%s', $controller, $method));
+
+                return;
             }
 
             $constructor = new ReflectionMethod($controller . '::' . $method);
             $parameters  = $constructor->getParameters();
 
-            // TODO make optional as error or warning with config
             if (count($parameters) !== count($params)) {
-                $warning[] = [
-                    'route'   => $route,
-                    'warning' => sprintf('Parameter count mismatch: %s::%s', $controller, $method),
-                ];
+                if ($this->config->treatParameterMismatchAsError) {
+                    $this->setError($route['route'], sprintf('Parameter count mismatch: %s::%s', $controller, $method));
+
+                    return;
+                }
+
+                $this->setWarning($route['route'], sprintf('Parameter count mismatch: %s::%s', $controller, $method));
             }
         } catch (Exception $e) {
-            $invalidRoutes[] = [
-                'route' => $route,
-                'error' => 'Error checking route: ' . $e->getMessage(),
-            ];
+            $this->setError($route['route'], 'Error checking route: ' . $e->getMessage());
         }
     }
 
-    private function displayResults(array $warnings, array $invalidRoutes)
+    private function displayResults()
     {
-        if (! empty($warnings)) {
+        if (! empty($this->warnings)) {
             CLI::write("Warnings found:\n", 'yellow');
 
-            foreach ($warnings as $warning) {
-                CLI::write('- Route: ' . $warning['route']['route'], 'white');
+            foreach ($this->warnings as $warning) {
+                CLI::write('- Route: ' . $warning['route'], 'white');
                 CLI::write('  Warning: ' . $warning['warning'], 'yellow');
             }
         }
 
-        if (empty($invalidRoutes)) {
+        if (empty($this->errors)) {
             CLI::write('All routes are valid!', 'green');
 
             exit(0);
@@ -113,11 +122,27 @@ class CheckRoutes extends BaseCommand
 
         CLI::write("Invalid routes found:\n", 'red');
 
-        foreach ($invalidRoutes as $invalidRoute) {
-            CLI::write('- Route: ' . $invalidRoute['route']['route'], 'white');
+        foreach ($this->errors as $invalidRoute) {
+            CLI::write('- Route: ' . $invalidRoute['route'], 'white');
             CLI::write('  Error: ' . $invalidRoute['error'], 'red');
         }
 
         exit(1);
+    }
+
+    private function setWarning(string $route, string $warning)
+    {
+        $this->warnings[] = [
+            'route'   => $route,
+            'warning' => $warning,
+        ];
+    }
+
+    private function setError(string $route, string $error)
+    {
+        $this->errors[] = [
+            'route' => $route,
+            'error' => $error,
+        ];
     }
 }
