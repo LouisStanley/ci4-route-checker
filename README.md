@@ -75,6 +75,37 @@ class RouteChecker extends BaseConfig
 }
 ```
 
+## GitHub Actions Integration
+You can automate route checking in your CI/CD pipeline using GitHub Actions. Add the following workflow file to `.github/workflows/route-check.yml`:
+
+```yaml
+name: Route Checker
+
+on: [push, pull_request]
+
+jobs:
+  route-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist
+
+      - name: Run Route Checker
+        run: php spark routes:check
+```
+
+This will automatically check routes whenever code is pushed or a pull request is created, helping to ensure that no broken routes are introduced into the project.
+
 ## Output
 - **Warnings:** Highlight potential issues, such as closure routes or parameter mismatches.
 - **Errors:** Indicate invalid routes where controllers or methods are missing.
