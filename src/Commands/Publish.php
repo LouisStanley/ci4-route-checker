@@ -9,7 +9,7 @@ use Throwable;
 class Publish extends BaseCommand
 {
     protected $group       = 'routes';
-    protected $name        = 'routes:publish-config';
+    protected $name        = 'routes:publish-checker-config';
     protected $description = 'Publish Route check config into the current application.';
 
     public function run(array $params)

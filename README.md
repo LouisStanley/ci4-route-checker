@@ -27,8 +27,53 @@ php spark routes:check
 - Checks for missing controllers.
 - Checks for missing methods in controllers.
 - Detects closure-based routes (currently marked as warnings).
-- Identifies mismatches in method parameter counts (can be configured as a warning or error in the future).
+- Identifies mismatches in method parameter counts (can be configured as a warning or error).
 - Displays warnings and errors in a structured format.
+
+## Configuration
+`Ci4RouteChecker` now supports configuration via a publishable config file. You can publish the configuration file with:
+
+```sh
+php spark routes:publish-checker-config
+```
+
+This will create a config file at `app/Config/RouteChecker.php` where you can modify settings as needed.
+
+### Available Configuration Options
+The published configuration file includes the following options:
+
+```php
+<?php
+
+namespace LouisStanley\Ci4RouteChecker\Config;
+
+use CodeIgniter\Config\BaseConfig;
+
+class RouteChecker extends BaseConfig
+{
+    /**
+     * Whether to treat a parameter mismatch as an error.
+     *
+     * If true, a parameter mismatch will be treated as an error.
+     * If false, a parameter mismatch will be treated as a warning.
+     */
+    public bool $treatParameterMismatchAsError = false;
+
+    /**
+     * Routes to ignore.
+     *
+     * @var array
+     *
+     * Example:
+     *
+     * public $ignoredRoutes = [
+     *    'admin/*',
+     *    'api/*',
+     * ];
+     */
+    public array $ignoredRoutes = [];
+}
+```
 
 ## Output
 - **Warnings:** Highlight potential issues, such as closure routes or parameter mismatches.
@@ -53,3 +98,4 @@ This project is licensed under the MIT License.
 
 ## Author
 Developed by Louis Stanley.
+
